@@ -132,9 +132,15 @@ class PreprocessMultiresRenderer(Renderer):
 
         object.__setattr__(self, "_psf_obs", psf_obs)
 
-        fft_shape_model_im = good_fft_size(self._padding*max(model_frame.bbox.shape))
+        fft_shape_model_im = (self._padding*max(model_frame.bbox.shape))
         fft_shape_model_psf = good_fft_size(self._padding*max(psf_model.shape))
         fft_shape_obs_psf = good_fft_size(self._padding*max(psf_obs.shape))
+        # Why are the paddings multiplied and not added?
+        
+        # Emily edits
+        if fft_shape_obs_psf < min(obs_frame.bbox.shape[-2:]):
+            fft_shape_obs_psf = max(obs_frame.bbox.shape[-2:])+1
+        # End Emily edits
 
         object.__setattr__(self, "fft_shape_model_im", fft_shape_model_im)
         object.__setattr__(self, "fft_shape_model_psf", fft_shape_model_psf)
@@ -172,6 +178,12 @@ class ResamplingMultiresRenderer(Renderer):
 
         fft_shape_model_im = good_fft_size(self._padding*max(model_frame.bbox.shape))
         fft_shape_obs_psf = good_fft_size(self._padding*max(obs_frame.psf().shape))
+        # Why is this duplicated from PreprocessMultiresRenderer?
+        
+        # Emily edits
+        if fft_shape_obs_psf < min(obs_frame.bbox.shape[-2:]):
+            fft_shape_obs_psf = max(obs_frame.bbox.shape[-2:])+1
+        # End Emily edits
 
         # getting the smallest grid to perform the interpolation
         # odd shape is required for k-wrapping later
@@ -226,6 +238,13 @@ class PostprocessMultiresRenderer(Renderer):
 
         fft_shape_model_im = good_fft_size(self._padding*max(model_frame.bbox.shape))
         fft_shape_obs_psf = good_fft_size(self._padding*max(obs_frame.psf().shape))
+        # Duplicated again?
+        
+        # Emily edits
+        if fft_shape_obs_psf < min(obs_frame.bbox.shape[-2:]):
+            fft_shape_obs_psf = max(obs_frame.bbox.shape[-2:])+1
+        # End Emily edits
+        
         object.__setattr__(self, "real_shape_target", obs_frame.bbox.shape)
         
         # getting the smallest grid to perform the interpolation
@@ -234,7 +253,6 @@ class PostprocessMultiresRenderer(Renderer):
         object.__setattr__(self, "fft_shape_target", fft_shape_target)
 
     def __call__(self, kimages, key=None):
-
         model_kim, model_kpsf, obs_kpsf = kimages
         kimage_final = model_kim / model_kpsf * obs_kpsf
         
@@ -256,7 +274,7 @@ class PostprocessMultiresRenderer(Renderer):
             jnp.fft.irfft2(kimg_shift, 
                            [self.fft_shape_target-1, self.fft_shape_target-1], (-2, -1)), (-2, -1)
         )
+        
+        img_trimmed = _trim(real_image_arr, [real_image_arr.shape[0], self.real_shape_target[-2], self.real_shape_target[-1]])
 
-        img_trimed = _trim(real_image_arr, [real_image_arr.shape[0], self.real_shape_target[-2], self.real_shape_target[-1]])
-
-        return img_trimed
+        return img_trimmed
